@@ -11,33 +11,136 @@ struct MainView: View {
     
     @State private var shouldPresentAddCardForm = false
     
+    @Environment(\.managedObjectContext) private var viewContext
+
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \Card.timestamp, ascending: true)],
+        animation: .default)
+    private var cards: FetchedResults<Card>
+    
     var body: some View {
         NavigationView {
             ScrollView {
-                TabView {
-                    ForEach(0..<5) { _ in
-                        CreditCardView()
-                        .padding(.bottom, 40)
+                
+                if (!cards.isEmpty) {
+                    TabView {
+                        ForEach(cards) { card in
+                            CreditCardView(card: card)
+                            .padding(.bottom, 40)
+                        }
                     }
+                    .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
+                    .frame(height: 280)
+                    .indexViewStyle(.page(backgroundDisplayMode: .always))
+                } else {
+
+                    emptyPromptMessage
                 }
-                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
-                .frame(height: 280)
-                .indexViewStyle(.page(backgroundDisplayMode: .always))
                 Spacer()
                     .fullScreenCover(isPresented: $shouldPresentAddCardForm) {
                         AddCardForm()
                     }
             }
             .navigationTitle("Credit Cards")
-            .navigationBarItems(trailing: addCardButton)
+            .navigationBarItems(leading: HStack {
+                addItemButton
+                deleteItemsButton
+            }, trailing: addCardButton)
         }
     }
     
+    
+    var emptyPromptMessage: some View {
+        VStack {
+            Text( "You currently have no cards in the system.")
+                .padding(.horizontal, 40)
+                .padding(.vertical )
+                .multilineTextAlignment(.center )
+            Button {
+                shouldPresentAddCardForm.toggle()
+            } label: {
+                Text("+ Add Your First Card")
+                    .foregroundColor(Color(.systemBackground))
+            }
+            .padding(EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14 ))
+            .background(Color(.label))
+
+        }.font(.system(size: 22, weight: .semibold ))
+    }
+    
+    var deleteItemsButton: some View {
+        Button {
+            cards.forEach { card in
+                viewContext.delete(card)
+            }
+            do {
+                try viewContext.save()
+            } catch {
+                // handle the error
+            }
+            
+        } label: {
+            Text("Delete All")
+        }
+    }
+    
+    var addItemButton: some View {
+        Button(action: {
+            withAnimation {
+                let viewContext = PersistenceController.shared.container.viewContext
+                let card = Card(context: viewContext)
+                card.timestamp = Date()
+                
+                do {
+                    try viewContext.save()
+                } catch {
+                    print("There was an error")
+                }
+            }
+            
+        }, label: {
+            Text("Add Item")
+        })
+    }
+    
     struct CreditCardView: View {
+        
+        let card: Card
+        @State private var shouldShowActionSheet = false
+        
+        private func handleDelete() {
+            
+            let viewContext = PersistenceController.shared.container.viewContext
+            
+            viewContext.delete(card)
+            
+            do {
+                try viewContext.save()
+            } catch {
+                // handle the error
+            }
+        }
+        
         var body: some View {
             VStack(alignment: .leading, spacing: 16) {
-                Text("Apple Blue Visa Card")
-                    .font(.system(size: 24, weight: .semibold))
+                HStack {
+                    Text(card.name ?? "")
+                        .font(.system(size: 24, weight: .semibold))
+                    Spacer()
+                    Button {
+                        shouldShowActionSheet.toggle()
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 20, weight: .bold ))
+                    }
+                    .actionSheet(isPresented: $shouldShowActionSheet) {
+                        .init(title: Text(card.name ?? "" ), message: Text("Options"), buttons: [
+                            .destructive(Text("Delete Card"), action: handleDelete),
+                            .cancel()
+                             
+                        ])
+                    }
+                }
                 HStack {
                     Image("visa")
                         .resizable()
@@ -48,18 +151,23 @@ struct MainView: View {
                         .font(.system(size: 18, weight: .semibold))
                 }
                 
-                Text("1234 1234 1234 1234")
-                Text("Credit Limit: $50,000")
+                Text(card.number ?? "")
+                Text("Credit Limit: $\(card.limit)")
                 
                 HStack { Spacer() }
             }
             .foregroundColor(.white)
             .padding()
             .background(
-                LinearGradient(colors: [
-                    Color.blue.opacity(0.6),
-                    Color.blue
-                ], startPoint: .center, endPoint: .bottom)
+                VStack {
+                    if let colorData = card.color, let uiColor = UIColor.color(data: colorData), let actualColor = Color(uiColor: uiColor) {
+                        LinearGradient(colors: [
+                            actualColor
+                        ], startPoint: .center, endPoint: .bottom)
+                    } else {
+                        Color.cyan
+                    }
+                }
             )
             .overlay(RoundedRectangle(cornerRadius: 8)
                 .stroke(Color.black, lineWidth: 1))
@@ -67,7 +175,6 @@ struct MainView: View {
             .shadow(radius: 5)
             .padding(.horizontal)
             .padding(.top, 8)
-            
         }
     }
     var addCardButton: some View {
@@ -86,6 +193,8 @@ struct MainView: View {
 
 struct MainView_Previews: PreviewProvider {
     static var previews: some View {
+        let viewContext = PersistenceController.shared.container.viewContext
         MainView()
+            .environment(\.managedObjectContext, viewContext)
     }
 }
