@@ -9,6 +9,26 @@ import SwiftUI
 
 struct AddCardForm: View {
     
+    let card: Card?
+    
+    init(card: Card? = nil) {
+        self.card = card
+        
+        _name = State(initialValue: self.card?.name ?? "")
+        _cardNumber = State(initialValue: self.card?.number ?? "")
+        
+        if let limit = card?.limit {
+            _limit = State(initialValue: String(limit))
+        }
+        _month = State(initialValue: Int(self.card?.expMonth ?? 1))
+        _year = State(initialValue: Int(self.card?.expYear ?? Int16(currentYear)))
+        
+        if let data = self.card?.color, let uiColor = UIColor.color(data: data) {
+            let c = Color(uiColor: uiColor)
+            _color = State(initialValue: c)
+        }
+    }
+    
     @Environment(\.presentationMode) var presentationMode
     
     @State private var name = ""
@@ -55,15 +75,17 @@ struct AddCardForm: View {
                     ColorPicker("Color", selection: $color)
                 }
             }
-            .navigationTitle("Add Credit Card")
+            .navigationTitle(self.card != nil ? self.card?.name ?? "" : "Add Credit Card") 
             .navigationBarItems(leading: cancelButton, trailing: saveButton)
         }
     }
     var saveButton: some View {
         Button(action: {
-            print("Saving...")
+
             let viewContext = PersistenceController.shared.container.viewContext
-            let card = Card(context: viewContext)
+            
+            let card = self.card != nil ? self.card! : Card(context: viewContext)
+            
             card.name = self.name
             card.number = self.cardNumber
             card.limit = Int32(self.limit) ?? 0
@@ -71,6 +93,7 @@ struct AddCardForm: View {
             card.expYear = Int16(self.year)
             card.timestamp = Date()
             card.color = UIColor(self.color).encode()
+            
             do {
                 try viewContext.save()
                 presentationMode.wrappedValue.dismiss()

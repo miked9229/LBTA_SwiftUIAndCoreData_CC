@@ -10,11 +10,12 @@ import SwiftUI
 struct MainView: View {
     
     @State private var shouldPresentAddCardForm = false
+    @State private var shouldShowTransactionForm = false
     
     @Environment(\.managedObjectContext) private var viewContext
-
+    
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Card.timestamp, ascending: true)],
+        sortDescriptors: [NSSortDescriptor(keyPath: \Card.timestamp, ascending: false)],
         animation: .default)
     private var cards: FetchedResults<Card>
     
@@ -26,14 +27,29 @@ struct MainView: View {
                     TabView {
                         ForEach(cards) { card in
                             CreditCardView(card: card)
-                            .padding(.bottom, 40)
+                                .padding(.bottom, 40)
                         }
                     }
                     .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
                     .frame(height: 280)
                     .indexViewStyle(.page(backgroundDisplayMode: .always))
-                } else {
+                    
+                    Text("Get started by adding your first transaction!")
+                    Button {
+                        shouldShowTransactionForm.toggle()
+                    } label: {
+                        Text("+ Transaction")
+                            .padding(EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14))
+                            .background(Color(.label))
+                            .foregroundColor(Color(.systemBackground))
+                            .font(.headline)
+                            .cornerRadius(5)
+                    }
+                    .fullScreenCover(isPresented: $shouldShowTransactionForm) {
+                        AddTransactionForm()
+                    }
 
+                } else {
                     emptyPromptMessage
                 }
                 Spacer()
@@ -64,7 +80,7 @@ struct MainView: View {
             }
             .padding(EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14 ))
             .background(Color(.label))
-
+            
         }.font(.system(size: 22, weight: .semibold ))
     }
     
@@ -81,6 +97,7 @@ struct MainView: View {
             
         } label: {
             Text("Delete All")
+                
         }
     }
     
@@ -97,7 +114,6 @@ struct MainView: View {
                     print("There was an error")
                 }
             }
-            
         }, label: {
             Text("Add Item")
         })
@@ -107,11 +123,13 @@ struct MainView: View {
         
         let card: Card
         @State private var shouldShowActionSheet = false
+        @State private var shouldShowEditForm = false
+        
+        @State var refreshId = UUID()
         
         private func handleDelete() {
             
             let viewContext = PersistenceController.shared.container.viewContext
-            
             viewContext.delete(card)
             
             do {
@@ -135,11 +153,15 @@ struct MainView: View {
                     }
                     .actionSheet(isPresented: $shouldShowActionSheet) {
                         .init(title: Text(card.name ?? "" ), message: Text("Options"), buttons: [
+                            .default(Text("Edit"), action: {
+                                shouldShowEditForm.toggle()
+                            }),
                             .destructive(Text("Delete Card"), action: handleDelete),
                             .cancel()
-                             
+                            
                         ])
                     }
+                    
                 }
                 HStack {
                     Image("visa")
@@ -175,7 +197,12 @@ struct MainView: View {
             .shadow(radius: 5)
             .padding(.horizontal)
             .padding(.top, 8)
+            
+            .fullScreenCover(isPresented: $shouldShowEditForm) {
+                AddCardForm(card: card)
+            }
         }
+        
     }
     var addCardButton: some View {
         Button(action: {
