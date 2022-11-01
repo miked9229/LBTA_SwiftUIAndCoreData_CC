@@ -62,9 +62,6 @@ struct AddTransactionForm: View {
         }
     }
     
-    
-    
-    
     struct PhotoPickerView: UIViewControllerRepresentable {
 
         @Binding var photoData: Data?
@@ -116,7 +113,20 @@ struct AddTransactionForm: View {
     }
     private var saveButton: some View {
         Button(action: {
-            print("Save")
+            let context = PersistenceController.shared.container.viewContext
+            let cardTransaction = CardTransation(context: context)
+            cardTransaction.name = name
+            cardTransaction.amount = Float(amount) ?? 0
+            cardTransaction.timestamp = date
+            cardTransaction.photoData = photoData
+            
+            
+            do {
+                try context.save()
+            } catch let err {
+                print("There was an error", err)
+            }
+            presentationMode.wrappedValue.dismiss()
         }, label: {
             Text("Save")
         })

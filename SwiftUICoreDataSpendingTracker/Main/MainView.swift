@@ -19,6 +19,12 @@ struct MainView: View {
         animation: .default)
     private var cards: FetchedResults<Card>
     
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \CardTransation.timestamp, ascending: false)],
+        animation: .default)
+    
+    private var cardTransactions: FetchedResults<CardTransation>
+    
     var body: some View {
         NavigationView {
             ScrollView {
@@ -45,6 +51,47 @@ struct MainView: View {
                             .font(.headline)
                             .cornerRadius(5)
                     }
+                    
+                    ForEach(cardTransactions) { transaction in
+                        VStack {
+                            HStack {
+                                 
+                                VStack(alignment: .leading) {
+                                    Text(transaction.name ?? "")
+                                        .font(.headline )
+                                    if let date = transaction.timestamp {
+                                        Text(dateFormatter.string(from: date))
+                                    }
+                                }
+                                Spacer()
+                                
+                                VStack {
+                                                                    
+                                    Button {
+                                         
+                                    } label: {
+                                        Image(systemName: "ellipsis")
+                                    }.padding(EdgeInsets(top: 6, leading: 8, bottom: 4, trailing: 0))
+
+                                    Text(String(format: "%.2f",transaction.amount))
+                                }
+                            }
+                            if let photoData = transaction.photoData, let uiImage = UIImage(data: photoData) {
+                                
+                                 Image(uiImage: uiImage)
+                                    .resizable()
+                                    .scaledToFill()
+                            }
+                        }
+                        .foregroundColor(Color(.label))
+                        .padding()
+                        .background(Color.white)
+                        .cornerRadius(5 )
+                        .shadow(radius: 5)
+                        .padding()
+                        
+                    }
+                    
                     .fullScreenCover(isPresented: $shouldShowTransactionForm) {
                         AddTransactionForm()
                     }
@@ -65,7 +112,13 @@ struct MainView: View {
         }
     }
     
-    
+    let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .none
+        return formatter
+    }()
+
     var emptyPromptMessage: some View {
         VStack {
             Text( "You currently have no cards in the system.")
